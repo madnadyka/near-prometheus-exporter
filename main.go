@@ -30,7 +30,6 @@ func main() {
 	}
 
 	url := flag.String("url", "http://localhost:3030", "Near JSON-RPC URL")
-	externalRpc := flag.String("external-rpc", "https://rpc.betanet.near.org", "Near JSON-RPC URL")
 	addr := flag.String("addr", ":9333", "listen address")
 	accountId := flag.String("accountId", "test", "Validator account id")
 	ver := flag.Bool("v", false, "print version number and exit")
@@ -47,12 +46,9 @@ func main() {
 
 	client := nearapi.NewClient(*url)
 
-	devClient := nearapi.NewClient(*externalRpc)
-
 	registry := prometheus.NewPedanticRegistry()
 	registry.MustRegister(
 		collector.NewNodeRpcMetrics(client, *accountId),
-		collector.NewDevNodeRpcMetrics(devClient),
 	)
 
 	handler := promhttp.HandlerFor(registry, promhttp.HandlerOpts{
