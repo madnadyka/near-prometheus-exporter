@@ -3,28 +3,21 @@ package collector
 import (
 	"fmt"
 	"hash/fnv"
+	"math"
 	"strconv"
 )
 
 func GetStakeFromString(s string) float64 {
-	if len(s) == 1 {
+	if len(s) <= 19 {
 		return 0
 	}
-	l := len(s) - 19 - 5
+	l := len(s) - 19
 	v, err := strconv.ParseFloat(s[0:l], 64)
 	if err != nil {
 		fmt.Println(err)
-	}
-	return float64(v)
-}
-
-func GetFloatFromString(s string) float64 {
-	v, err := strconv.ParseFloat(s, 64)
-	if err != nil {
-		fmt.Println(err)
 		return 0
 	}
-	return v
+	return v / math.Pow(10, 5)
 }
 
 func HashString(s string) uint32 {
