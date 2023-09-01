@@ -40,61 +40,61 @@ func NewNodeRpcMetrics(client *nearapi.Client, accountId string) *NodeRpcMetrics
 		epochBlockProducedDesc: prometheus.NewDesc(
 			"near_account_epoch_block_produced_number",
 			"The number of block produced in epoch of a given account id",
-			nil,
+			[]string{"epoch"},
 			nil,
 		),
 		epochBlockExpectedDesc: prometheus.NewDesc(
 			"near_account_epoch_block_expected_number",
 			"The number of block expected in epoch of a given account id",
-			nil,
+			[]string{"epoch"},
 			nil,
 		),
 		epochChunksProducedDesc: prometheus.NewDesc(
 			"near_account_epoch_chunks_produced_number",
 			"The number of chunks produced in epoch of a given account id",
-			nil,
+			[]string{"epoch"},
 			nil,
 		),
 		epochChunksExpectedDesc: prometheus.NewDesc(
 			"near_account_epoch_chunks_expected_number",
 			"The number of chunks expected in epoch of a given account id",
-			nil,
+			[]string{"epoch"},
 			nil,
 		),
 		delegatorStakeDesc: prometheus.NewDesc(
 			"near_account_delegator_stake",
 			"Delegators stake of a given account id",
-			[]string{"delegator_account_id"},
+			[]string{"delegator_account_id", "epoch"},
 			nil,
 		),
 		currentValidatorStakeDesc: prometheus.NewDesc(
 			"near_account_current_validator_stake",
 			"Current amount of validator stake of a given account id",
-			nil,
+			[]string{"epoch"},
 			nil,
 		),
 		nextValidatorStakeDesc: prometheus.NewDesc(
 			"near_account_next_validator_stake",
 			"The next validator stake of a given account id",
-			nil,
+			[]string{"epoch"},
 			nil,
 		),
 		currentProposalsDesc: prometheus.NewDesc(
 			"near_account_current_proposals_stake",
 			"Current proposals of a given account id",
-			nil,
+			[]string{"epoch"},
 			nil,
 		),
 		prevEpochKickoutDesc: prometheus.NewDesc(
 			"near_account_prev_epoch_kickout",
 			"Near previous epoch kicked out of a given account id",
-			[]string{"reason"},
+			[]string{"reason", "epoch"},
 			nil,
 		),
 		epochStartHeightDesc: prometheus.NewDesc(
 			"near_epoch_start_height",
 			"Near epoch start height",
-			nil,
+			[]string{"epoch"},
 			nil,
 		),
 		blockNumberDesc: prometheus.NewDesc(
@@ -118,7 +118,7 @@ func NewNodeRpcMetrics(client *nearapi.Client, accountId string) *NodeRpcMetrics
 		seatPriceDesc: prometheus.NewDesc(
 			"near_seat_price",
 			"Validator seat price",
-			nil,
+			[]string{"epoch"},
 			nil,
 		),
 	}
@@ -180,7 +180,8 @@ func (collector *NodeRpcMetrics) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 
-	ch <- prometheus.MustNewConstMetric(collector.epochStartHeightDesc, prometheus.GaugeValue, float64(r.Validators.EpochStartHeight))
+	epoch := r.Validators.EpochHeight
+	ch <- prometheus.MustNewConstMetric(collector.epochStartHeightDesc, prometheus.GaugeValue, float64(r.Validators.EpochStartHeight), fmt.Sprintf("%d", epoch))
 
 	var seatPrice float64
 	for _, v := range r.Validators.CurrentValidators {
@@ -192,29 +193,29 @@ func (collector *NodeRpcMetrics) Collect(ch chan<- prometheus.Metric) {
 			seatPrice = stake
 		}
 		if v.AccountId == collector.accountId {
-			ch <- prometheus.MustNewConstMetric(collector.currentValidatorStakeDesc, prometheus.GaugeValue, stake)
-			ch <- prometheus.MustNewConstMetric(collector.epochBlockProducedDesc, prometheus.GaugeValue, float64(v.NumProducedBlocks))
-			ch <- prometheus.MustNewConstMetric(collector.epochBlockExpectedDesc, prometheus.GaugeValue, float64(v.NumExpectedBlocks))
-			ch <- prometheus.MustNewConstMetric(collector.epochChunksProducedDesc, prometheus.GaugeValue, float64(v.NumProducedChunks))
-			ch <- prometheus.MustNewConstMetric(collector.epochChunksExpectedDesc, prometheus.GaugeValue, float64(v.NumExpectedChunks))
+			ch <- prometheus.MustNewConstMetric(collector.currentValidatorStakeDesc, prometheus.GaugeValue, stake, fmt.Sprintf("%d", epoch))
+			ch <- prometheus.MustNewConstMetric(collector.epochBlockProducedDesc, prometheus.GaugeValue, float64(v.NumProducedBlocks), fmt.Sprintf("%d", epoch))
+			ch <- prometheus.MustNewConstMetric(collector.epochBlockExpectedDesc, prometheus.GaugeValue, float64(v.NumExpectedBlocks), fmt.Sprintf("%d", epoch))
+			ch <- prometheus.MustNewConstMetric(collector.epochChunksProducedDesc, prometheus.GaugeValue, float64(v.NumProducedChunks), fmt.Sprintf("%d", epoch))
+			ch <- prometheus.MustNewConstMetric(collector.epochChunksExpectedDesc, prometheus.GaugeValue, float64(v.NumExpectedChunks), fmt.Sprintf("%d", epoch))
 		}
 	}
-	ch <- prometheus.MustNewConstMetric(collector.seatPriceDesc, prometheus.GaugeValue, seatPrice)
+	ch <- prometheus.MustNewConstMetric(collector.seatPriceDesc, prometheus.GaugeValue, seatPrice, fmt.Sprintf("%d", epoch))
 	for _, v := range r.Validators.NextValidators {
 		if v.AccountId == collector.accountId {
-			ch <- prometheus.MustNewConstMetric(collector.nextValidatorStakeDesc, prometheus.GaugeValue, float64(GetStakeFromString(v.Stake)))
+			ch <- prometheus.MustNewConstMetric(collector.nextValidatorStakeDesc, prometheus.GaugeValue, GetStakeFromString(v.Stake), fmt.Sprintf("%d", epoch))
 		}
 	}
 
 	for _, v := range r.Validators.CurrentProposals {
 		if v.AccountId == collector.accountId {
-			ch <- prometheus.MustNewConstMetric(collector.currentProposalsDesc, prometheus.GaugeValue, float64(GetStakeFromString(v.Stake)))
+			ch <- prometheus.MustNewConstMetric(collector.currentProposalsDesc, prometheus.GaugeValue, GetStakeFromString(v.Stake), fmt.Sprintf("%d", epoch))
 		}
 	}
 
 	for _, v := range r.Validators.PrevEpochKickOut {
 		if v.AccountId == collector.accountId {
-			ch <- prometheus.MustNewConstMetric(collector.prevEpochKickoutDesc, prometheus.GaugeValue, 0, fmt.Sprintf("%v", v.Reason))
+			ch <- prometheus.MustNewConstMetric(collector.prevEpochKickoutDesc, prometheus.GaugeValue, 0, fmt.Sprintf("%v", v.Reason), fmt.Sprintf("%d", epoch))
 		}
 	}
 
@@ -238,7 +239,7 @@ func (collector *NodeRpcMetrics) Collect(ch chan<- prometheus.Metric) {
 	_ = json.Unmarshal([]byte(resultString), &res)
 
 	for _, delegator := range res {
-		ch <- prometheus.MustNewConstMetric(collector.delegatorStakeDesc, prometheus.GaugeValue, float64(GetStakeFromString(delegator.StakedBalance)), delegator.AccountId)
+		ch <- prometheus.MustNewConstMetric(collector.delegatorStakeDesc, prometheus.GaugeValue, GetStakeFromString(delegator.StakedBalance), delegator.AccountId, fmt.Sprintf("%d", epoch))
 	}
 
 }
