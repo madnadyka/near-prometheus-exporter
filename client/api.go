@@ -62,9 +62,19 @@ type ValidatorsResult struct {
 	} `json:"result_validators"`
 }
 
+type QueryResult struct {
+	Result struct {
+		BlockHash   string        `json:"block_hash"`
+		BlockHeight int           `json:"block_height"`
+		Logs        []interface{} `json:"logs"`
+		Result      []int32       `json:"result_query"`
+	} `json:"result_query"`
+}
+
 type Result struct {
 	StatusResult
 	ValidatorsResult
+	QueryResult
 }
 
 type Client struct {

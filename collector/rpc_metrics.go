@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -13,10 +14,11 @@ type NodeRpcMetrics struct {
 	client                    *nearapi.Client
 	epochBlockProducedDesc    *prometheus.Desc
 	epochBlockExpectedDesc    *prometheus.Desc
-	epochChunksProducedDesc    *prometheus.Desc
-	epochChunksExpectedDesc    *prometheus.Desc
+	epochChunksProducedDesc   *prometheus.Desc
+	epochChunksExpectedDesc   *prometheus.Desc
 	seatPriceDesc             *prometheus.Desc
 	currentStakeDesc          *prometheus.Desc
+	delegatorStakeDesc        *prometheus.Desc
 	epochStartHeightDesc      *prometheus.Desc
 	blockNumberDesc           *prometheus.Desc
 	syncingDesc               *prometheus.Desc
@@ -25,6 +27,13 @@ type NodeRpcMetrics struct {
 	nextValidatorStakeDesc    *prometheus.Desc
 	prevEpochKickoutDesc      *prometheus.Desc
 	currentProposalsDesc      *prometheus.Desc
+}
+
+type DelegatorAccount struct {
+	AccountId       string `json:"account_id"`
+	UnstakedBalance string `json:"unstaked_balance"`
+	StakedBalance   string `json:"staked_balance"`
+	CanWithdraw     bool   `json:"can_withdraw"`
 }
 
 func NewNodeRpcMetrics(client *nearapi.Client, accountId string) *NodeRpcMetrics {
@@ -65,6 +74,12 @@ func NewNodeRpcMetrics(client *nearapi.Client, accountId string) *NodeRpcMetrics
 			"near_current_stake",
 			"Current stake of a given account id",
 			nil,
+			nil,
+		),
+		delegatorStakeDesc: prometheus.NewDesc(
+			"near_delegator_stake",
+			"Delegators stake of a given account id",
+			[]string{"delegator_account_id"},
 			nil,
 		),
 		epochStartHeightDesc: prometheus.NewDesc(
@@ -125,6 +140,7 @@ func (collector *NodeRpcMetrics) Describe(ch chan<- *prometheus.Desc) {
 	ch <- collector.epochChunksExpectedDesc
 	ch <- collector.seatPriceDesc
 	ch <- collector.currentStakeDesc
+	ch <- collector.delegatorStakeDesc
 	ch <- collector.epochStartHeightDesc
 	ch <- collector.blockNumberDesc
 	ch <- collector.syncingDesc
@@ -229,4 +245,28 @@ func (collector *NodeRpcMetrics) Collect(ch chan<- prometheus.Metric) {
 	for _, v := range r.Validators.PrevEpochKickOut {
 		ch <- prometheus.MustNewConstMetric(collector.prevEpochKickoutDesc, prometheus.GaugeValue, 0, v.AccountId, fmt.Sprintf("%v", v.Reason))
 	}
+
+	d, err := collector.client.Get("query", map[string]interface{}{"request_type": "call_function",
+		"finality":    "final",
+		"account_id":  collector.accountId,
+		"method_name": "get_accounts",
+		"args_base64": "eyJmcm9tX2luZGV4IjogMCwgImxpbWl0IjogMTAwfQ=="})
+
+	if err != nil {
+		ch <- prometheus.NewInvalidMetric(collector.delegatorStakeDesc, err)
+		return
+	}
+
+	resultString := ""
+	for _, n := range d.Result.Result {
+		resultString += string(n)
+
+	}
+	res := []DelegatorAccount{}
+	_ = json.Unmarshal([]byte(resultString), &res)
+
+	for _, delegator := range res {
+		ch <- prometheus.MustNewConstMetric(collector.delegatorStakeDesc, prometheus.GaugeValue, float64(GetStakeFromString(delegator.StakedBalance)), delegator.AccountId)
+	}
+
 }
